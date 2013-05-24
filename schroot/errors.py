@@ -1,0 +1,4 @@
+
+
+class SchrootError(Exception):
+    pass
