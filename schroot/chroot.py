@@ -3,10 +3,16 @@ from schroot.core import log
 from schroot.errors import SchrootError
 
 from contextlib import contextmanager
+import configparser
+import shutil
+import os
 
 
 class SchrootCommandError(SchrootError):
     pass
+
+
+SCHROOT_BASE = "/var/lib/schroot"
 
 
 class SchrootChroot(object):
@@ -22,6 +28,32 @@ class SchrootChroot(object):
         if ret != 0:
             raise SchrootCommandError()
         return out, err, ret
+
+    @property
+    def location(self):
+        obj = self.get_session_config()
+        return obj['mount-location']
+
+    def copy(self, what, whence, user=None):
+        o, e, r = self.run(["mktemp", "-d"])  # Don't pass user.
+        # it'll set the perms wonky.
+        where = o.strip()
+        what = os.path.abspath(what)
+        fname = os.path.basename(what)
+        internal = os.path.join(where, fname)
+        l = self.location
+        l = l if not l.endswith("/") else l[:-1]
+        pth = "%s/%s" % (l, internal)
+        shutil.copy(what, pth)
+        self.run(['mv', internal, whence], user=user)
+        self.run(['rm', '-rf', where], user=user)
+
+    def get_session_config(self):
+        cfg = configparser.ConfigParser()
+        fil = os.path.join(SCHROOT_BASE, 'session', self.session)
+        if cfg.read(fil) == []:
+            raise SchrootError("SANITY FAILURE")
+        return cfg[self.session]
 
     def start(self, chroot_name):
         out, err, ret = self._safe_run(['schroot', '-b', '-c', chroot_name])
@@ -42,6 +74,7 @@ class SchrootChroot(object):
         command += ['--'] + cmd
         log.debug(" ".join((str(x) for x in command)))
         out, err, ret = run_command(command)
+        print(out, err, ret)
         return out, err, ret
 
     def __lt__(self, other):
