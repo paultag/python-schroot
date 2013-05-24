@@ -74,7 +74,6 @@ class SchrootChroot(object):
         command += ['--'] + cmd
         log.debug(" ".join((str(x) for x in command)))
         out, err, ret = run_command(command)
-        print(out, err, ret)
         return out, err, ret
 
     def __lt__(self, other):
