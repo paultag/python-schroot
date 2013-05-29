@@ -20,11 +20,12 @@ SCHROOT_BASE = "/var/lib/schroot"
 
 
 class SchrootChroot(object):
-    __slots__ = ('session', 'active')
+    __slots__ = ('session', 'active', 'location')
 
     def __init__(self):
         self.session = None
         self.active = False
+        self.location = None
 
     def _safe_run(self, cmd):
         # log.debug("Command: %s" % (" ".join(cmd)))
@@ -32,11 +33,6 @@ class SchrootChroot(object):
         if ret != 0:
             raise SchrootCommandError()
         return out, err, ret
-
-    @property
-    def location(self):
-        obj = self.get_session_config()
-        return obj['mount-location']
 
     def copy(self, what, whence, user=None):
         o, e, r = self.run(["mktemp", "-d"],
@@ -65,6 +61,9 @@ class SchrootChroot(object):
         self.session = out.strip()
         self.active = True
         log.debug("new session: %s" % (self.session))
+
+        out, err, ret = self._safe_run(['schroot', '--location', '-c', "session:%s" % self.session])
+        self.location = out.strip()
 
     def end(self):
         out, err, ret = self._safe_run(['schroot', '-e', '-c', self.session])
