@@ -3,9 +3,13 @@ from schroot.core import log
 from schroot.errors import SchrootError
 
 from contextlib import contextmanager
-import configparser
 import shutil
 import os
+
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser  # meh, Python 2
 
 
 class SchrootCommandError(SchrootError):
@@ -80,7 +84,7 @@ class SchrootChroot(object):
         log.debug(" ".join((str(x) for x in command)))
         out, err, ret = run_command(command)
 
-        if ret not in return_codes:
+        if return_codes and ret not in return_codes:
             raise SchrootCommandError("Bad return code")
 
         return out, err, ret
