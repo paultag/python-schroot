@@ -5,11 +5,23 @@ from schroot.errors import SchrootError
 from contextlib import contextmanager
 import shutil
 import os
+import subprocess
 
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser  # meh, Python 2
+
+
+def _wrap(func):
+    def run(chroot, cmd, user=None, **kwargs):
+        command = ['schroot', '-r', '-c', chroot.session]
+        if user:
+            command += ['-u', user]
+        command += ['--'] + cmd
+        log.debug(" ".join((str(x) for x in command)))
+        return func(command, **kwargs)
+    return run
 
 
 class SchrootCommandError(SchrootError):
@@ -71,26 +83,6 @@ class SchrootChroot(object):
         if self.session is not None:
             out, err, ret = self._safe_run(['schroot', '-e', '-c', self.session])
 
-    def run(self, cmd, user=None, return_codes=None):
-        if not isinstance(cmd, list):
-            cmd = [cmd]
-
-        if return_codes is not None:
-            if not isinstance(return_codes, tuple):
-                return_codes = (return_codes, )
-
-        command = ['schroot', '-r', '-c', self.session]
-        if user:
-            command += ['-u', user]
-        command += ['--'] + cmd
-        log.debug(" ".join((str(x) for x in command)))
-        out, err, ret = run_command(command)
-
-        if return_codes and ret not in return_codes:
-            raise SchrootCommandError("Bad return code")
-
-        return out, err, ret
-
     def __lt__(self, other):
         return self.run(other, return_codes=0)
 
@@ -114,6 +106,12 @@ class SchrootChroot(object):
             self.run(['mv', internal, whence], user=user, return_codes=0)
         finally:
             self.run(['rm', '-rf', where], return_codes=0)
+
+    run = _wrap(run_command)
+    call = _wrap(subprocess.call)
+    check_call = _wrap(subprocess.check_call)
+    check_output = _wrap(subprocess.check_output)
+    Popen = _wrap(subprocess.Popen)
 
 
 class UserProxy(SchrootChroot):

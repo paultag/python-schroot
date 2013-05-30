@@ -2,7 +2,7 @@ import subprocess
 import shlex
 
 
-def run_command(command, stdin=None, encoding='utf-8'):
+def run_command(command, stdin=None, encoding='utf-8', return_codes=None):
     if not isinstance(command, list):
         command = shlex.split(command)
     try:
@@ -18,4 +18,11 @@ def run_command(command, stdin=None, encoding='utf-8'):
         kwargs['input'] = stdin.read()
 
     (output, stderr) = (x.decode(encoding) for x in pipe.communicate(**kwargs))
+
+    if return_codes is not None:
+        if not isinstance(return_codes, tuple):
+            return_codes = (return_codes, )
+        if pipe.returncode not in return_codes:
+            raise SchrootCommandError("Bad return code %d" % pipe.returncode)
+
     return (output, stderr, pipe.returncode)
