@@ -66,7 +66,8 @@ class SchrootChroot(object):
         self.location = out.strip()
 
     def end(self):
-        out, err, ret = self._safe_run(['schroot', '-e', '-c', self.session])
+        if self.session is not None:
+            out, err, ret = self._safe_run(['schroot', '-e', '-c', self.session])
 
     def run(self, cmd, user=None, return_codes=None):
         if not isinstance(cmd, list):
