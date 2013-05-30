@@ -94,6 +94,24 @@ class SchrootChroot(object):
     def __floordiv__(self, other):
         return UserProxy(other, self)
 
+    @contextmanager
+    def create_file(self, whence, user=None):
+        o, e, r = self.run(["mktemp", "-d"],
+                           return_codes=0)  # Don't pass user.
+        # it'll set the perms wonky.
+        where = o.strip()
+        fname = os.path.basename(whence)
+        internal = os.path.join(where, fname)
+        pth = os.path.join(self.location, internal.lstrip(os.path.sep))
+        log.debug("creating %s" % (pth))
+        try:
+            with open(pth, "w") as f:
+                yield f
+            log.debug("copy %s to %s" % (internal, whence))
+            self.run(['mv', internal, whence], user=user, return_codes=0)
+        finally:
+            self.run(['rm', '-rf', where], return_codes=0)
+
 
 class UserProxy(SchrootChroot):
     __slots__ = ('user')
