@@ -39,15 +39,15 @@ class SchrootChroot(object):
                            return_codes=0)  # Don't pass user.
         # it'll set the perms wonky.
         where = o.strip()
-        what = os.path.abspath(what)
-        fname = os.path.basename(what)
-        internal = os.path.join(where, fname)
-        l = self.location
-        l = l if not l.endswith("/") else l[:-1]
-        pth = "%s/%s" % (l, internal)
-        shutil.copy(what, pth)
-        self.run(['mv', internal, whence], user=user, return_codes=0)
-        self.run(['rm', '-rf', where], user=user, return_codes=0)
+        try:
+            what = os.path.abspath(what)
+            fname = os.path.basename(what)
+            internal = os.path.join(where, fname)
+            pth = os.path.join(self.location, internal.lstrip(os.path.sep))
+            shutil.copy(what, pth)
+            self.run(['mv', internal, whence], user=user, return_codes=0)
+        finally:
+            self.run(['rm', '-rf', where], user=user, return_codes=0)
 
     def get_session_config(self):
         cfg = configparser.ConfigParser()
