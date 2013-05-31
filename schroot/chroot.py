@@ -62,7 +62,9 @@ class SchrootChroot(object):
         self.active = True
         log.debug("new session: %s" % (self.session))
 
-        out, err, ret = self._safe_run(['schroot', '--location', '-c', "session:%s" % self.session])
+        out, err, ret = self._safe_run([
+            'schroot', '--location', '-c', "session:%s" % self.session
+        ])
         self.location = out.strip()
 
     def end(self):
