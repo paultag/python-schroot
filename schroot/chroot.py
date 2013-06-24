@@ -13,17 +13,6 @@ except ImportError:
     import ConfigParser as configparser  # meh, Python 2
 
 
-def _wrap(func):
-    def run(chroot, cmd, user=None, **kwargs):
-        command = ['schroot', '-r', '-c', chroot.session]
-        if user:
-            command += ['-u', user]
-        command += ['--'] + cmd
-        log.debug(" ".join((str(x) for x in command)))
-        return func(command, **kwargs)
-    return run
-
-
 class SchrootCommandError(SchrootError):
     pass
 
@@ -38,6 +27,19 @@ class SchrootChroot(object):
         self.session = None
         self.active = False
         self.location = None
+
+    def _command(self, cmd, kwargs):
+        user = kwargs.pop("user", None)
+        preserve_environment = kwargs.pop("preserve_environment", False)
+
+        command = ['schroot', '-r', '-c', self.session]
+        if user:
+            command += ['-u', user]
+        if preserve_environment:
+            command += ['-p']
+        command += ['--'] + cmd
+        log.debug(" ".join((str(x) for x in command)))
+        return command
 
     def _safe_run(self, cmd):
         # log.debug("Command: %s" % (" ".join(cmd)))
@@ -107,11 +109,25 @@ class SchrootChroot(object):
         finally:
             self.run(['rm', '-rf', where], return_codes=0)
 
-    run = _wrap(run_command)
-    call = _wrap(subprocess.call)
-    check_call = _wrap(subprocess.check_call)
-    check_output = _wrap(subprocess.check_output)
-    Popen = _wrap(subprocess.Popen)
+    def run(self, cmd, **kwargs):
+        command = self._command(cmd, kwargs)
+        return run_command(command, **kwargs)
+
+    def call(self, cmd, **kwargs):
+        command = self._command(cmd, kwargs)
+        return subprocess.call(command, **kwargs)
+
+    def check_call(self, cmd, **kwargs):
+        command = self._command(cmd, kwargs)
+        return subprocess.check_call(command, **kwargs)
+
+    def check_output(self, cmd, **kwargs):
+        command = self._command(cmd, kwargs)
+        return subprocess.check_output(command, **kwargs)
+
+    def Popen(self, cmd, **kwargs):
+        command = self._command(cmd, kwargs)
+        return subprocess.Popen(command, **kwargs)
 
 
 class UserProxy(SchrootChroot):
