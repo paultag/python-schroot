@@ -1,4 +1,4 @@
 from schroot.chroot import schroot  # noqa
 
 __appname__ = "schroot"
-__version__ = "0.2"
+__version__ = "0.3"
