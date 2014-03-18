@@ -2,14 +2,16 @@ import subprocess
 import shlex
 
 
-def run_command(command, stdin=None, encoding='utf-8', return_codes=None):
+def run_command(command, stdin=None, encoding='utf-8', return_codes=None,
+                **kwargs):
     if not isinstance(command, list):
         command = shlex.split(command)
     try:
         pipe = subprocess.Popen(command, shell=False,
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
+                                stderr=subprocess.PIPE,
+                                **kwargs)
     except OSError:
         return (None, None, -1)
 
