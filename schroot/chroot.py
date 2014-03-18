@@ -42,7 +42,7 @@ class SchrootChroot(object):
         return command
 
     def _safe_run(self, cmd):
-        # log.debug("Command: %s" % (" ".join(cmd)))
+        log.debug("Command: %s" % (" ".join(cmd)))
         out, err, ret = run_command(cmd)
         if ret != 0:
             raise SchrootCommandError()
@@ -104,7 +104,6 @@ class SchrootChroot(object):
         try:
             with open(pth, "w") as f:
                 yield f
-            log.debug("copy %s to %s" % (internal, whence))
             self.run(['mv', internal, whence], user=user, return_codes=0)
         finally:
             self.run(['rm', '-rf', where], return_codes=0)
