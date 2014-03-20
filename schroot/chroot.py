@@ -3,6 +3,7 @@ from schroot.core import log
 from schroot.errors import SchrootError
 
 from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
 import shutil
 import os
 import subprocess
@@ -49,19 +50,10 @@ class SchrootChroot(object):
         return out, err, ret
 
     def copy(self, what, whence, user=None):
-        o, e, r = self.run(["mktemp", "-d"],
-                           return_codes=0)  # Don't pass user.
-        # it'll set the perms wonky.
-        where = o.strip()
-        try:
-            what = os.path.abspath(what)
-            fname = os.path.basename(what)
-            internal = os.path.join(where, fname)
-            pth = os.path.join(self.location, internal.lstrip(os.path.sep))
-            shutil.copy(what, pth)
-            self.run(['mv', internal, whence], user=user, return_codes=0)
-        finally:
-            self.run(['rm', '-rf', where], user=user, return_codes=0)
+        with self.create_file(whence, user) as f:
+            log.debug("copying %s to %s" % (what, f.name))
+            with open(what) as src:
+                shutil.copyfileobj(src, f)
 
     def get_session_config(self):
         cfg = configparser.ConfigParser()
@@ -93,20 +85,15 @@ class SchrootChroot(object):
 
     @contextmanager
     def create_file(self, whence, user=None):
-        o, e, r = self.run(["mktemp", "-d"],
-                           return_codes=0)  # Don't pass user.
-        # it'll set the perms wonky.
-        where = o.strip()
-        fname = os.path.basename(whence)
-        internal = os.path.join(where, fname)
-        pth = os.path.join(self.location, internal.lstrip(os.path.sep))
-        log.debug("creating %s" % (pth))
-        try:
-            with open(pth, "w") as f:
-                yield f
-            self.run(['mv', internal, whence], user=user, return_codes=0)
-        finally:
-            self.run(['rm', '-rf', where], return_codes=0)
+        tmp_dir = os.path.join(self.location, "tmp")
+        with NamedTemporaryFile(dir=tmp_dir) as tmp_file:
+            chroot_tmp_file = os.path.basename(tmp_file.name)
+            chroot_tmp_file = os.path.join("/tmp", chroot_tmp_file)
+
+            log.debug("creating %s" % (tmp_file.name))
+            yield tmp_file
+            tmp_file.flush()
+            self.check_call(['cp', chroot_tmp_file, whence], user=user)
 
     def run(self, cmd, **kwargs):
         command = self._command(cmd, kwargs)
