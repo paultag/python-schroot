@@ -7,6 +7,7 @@ from tempfile import NamedTemporaryFile
 import shutil
 import os
 import subprocess
+import pipes
 
 try:
     import configparser
@@ -29,18 +30,46 @@ class SchrootChroot(object):
         self.active = False
         self.location = None
 
-    def _command(self, cmd, kwargs):
-        user = kwargs.pop("user", None)
-        preserve_environment = kwargs.pop("preserve_environment", False)
-
+    def _command_prefix(self, user, preserve_environment):
         command = ['schroot', '-r', '-c', self.session]
         if user:
             command += ['-u', user]
         if preserve_environment:
             command += ['-p']
-        command += ['--'] + cmd
-        log.debug(" ".join((str(x) for x in command)))
+        command += ['--']
         return command
+
+    @contextmanager
+    def _command(self, cmd, kwargs):
+        user = kwargs.pop("user", None)
+        preserve_environment = kwargs.pop("preserve_environment", False)
+        env = kwargs.pop("env", None)
+
+        command = self._command_prefix(user, preserve_environment)
+
+        # short cut if env not set
+        if env is None:
+            command += cmd
+            log.debug(" ".join((str(x) for x in command)))
+            yield command
+            return
+
+        tmp_dir = os.path.join(self.location, "tmp")
+        with NamedTemporaryFile(dir=tmp_dir) as tmp_file:
+            for key, value in env.iteritems():
+                tmp_cmd = "export %s=%s" % (
+                    pipes.quote(key), pipes.quote(value))
+                tmp_file.write(tmp_cmd)
+                tmp_file.write("\n")
+            tmp_file.write('"$@"\n')
+            tmp_file.flush()
+
+            chroot_tmp_file = os.path.basename(tmp_file.name)
+            chroot_tmp_file = os.path.join("/tmp", chroot_tmp_file)
+
+            command += ['sh', '-e', chroot_tmp_file] + cmd
+            log.debug(" ".join((str(x) for x in command)))
+            yield command
 
     def _safe_run(self, cmd):
         log.debug("Command: %s" % (" ".join(cmd)))
@@ -96,24 +125,24 @@ class SchrootChroot(object):
             self.check_call(['cp', chroot_tmp_file, whence], user=user)
 
     def run(self, cmd, **kwargs):
-        command = self._command(cmd, kwargs)
-        return run_command(command, **kwargs)
+        with self._command(cmd, kwargs) as command:
+            return run_command(command, **kwargs)
 
     def call(self, cmd, **kwargs):
-        command = self._command(cmd, kwargs)
-        return subprocess.call(command, **kwargs)
+        with self._command(cmd, kwargs) as command:
+            return subprocess.call(command, **kwargs)
 
     def check_call(self, cmd, **kwargs):
-        command = self._command(cmd, kwargs)
-        return subprocess.check_call(command, **kwargs)
+        with self._command(cmd, kwargs) as command:
+            return subprocess.check_call(command, **kwargs)
 
     def check_output(self, cmd, **kwargs):
-        command = self._command(cmd, kwargs)
-        return subprocess.check_output(command, **kwargs)
+        with self._command(cmd, kwargs) as command:
+            return subprocess.check_output(command, **kwargs)
 
     def Popen(self, cmd, **kwargs):
-        command = self._command(cmd, kwargs)
-        return subprocess.Popen(command, **kwargs)
+        with self._command(cmd, kwargs) as command:
+            return subprocess.Popen(command, **kwargs)
 
 
 class UserProxy(SchrootChroot):
