@@ -72,7 +72,6 @@ class SchrootChroot(object):
             yield command
 
     def _safe_run(self, cmd):
-        log.debug("Command: %s" % (" ".join(cmd)))
         out, err, ret = run_command(cmd)
         if ret != 0:
             raise SchrootCommandError()
