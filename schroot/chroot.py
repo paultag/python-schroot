@@ -16,7 +16,11 @@ except ImportError:
 
 
 class SchrootCommandError(SchrootError):
-    pass
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
 
 
 SCHROOT_BASE = "/var/lib/schroot"
@@ -74,7 +78,7 @@ class SchrootChroot(object):
     def _safe_run(self, cmd):
         out, err, ret = run_command(cmd)
         if ret != 0:
-            raise SchrootCommandError()
+            raise SchrootCommandError(err)
         return out, err, ret
 
     def copy(self, what, whence, user=None):
